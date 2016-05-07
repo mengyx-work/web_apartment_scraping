@@ -2,6 +2,8 @@ import requests, bs4, re, sys
 from pymongo import MongoClient
 from bs4 import SoupStrainer
 from multiprocessing import Pool
+from multiprocessing.pool import ThreadPool
+
 from craiglist_apt_search_scrape import craiglist_apt_search_page_scrape
 from craiglist_apt_page_scrape import craiglist_apt_single_page_scrape
 
@@ -21,51 +23,43 @@ if table.count != 0:
 ## increase the system recursion limit for the BeautifulSoup find_all() calls
 sys.setrecursionlimit(10000) # default is 1000
 
-scraper = craiglist_apt_search_page_scrape()
 
-def parse_tag(tag):
-    if isinstance(tag, bs4.element.Tag):
-        contents = scraper.get_tag_contents(tag)
-        if 'href' in contents:
-            url = contents['href']
-            print url
-            pasred_page = craiglist_apt_single_page_scrape(url)
-            page_content = pasred_page.get_page_content()
-            contents.update(page_content)
-            #table.insert_one(contents)
+def parse_tag_content(contents):
+    updated_contents = contents.copy()
+    if 'href' in contents:
+        url = contents['href']
+        print url
+        pasred_page = craiglist_apt_single_page_scrape(url)
+        page_content = pasred_page.get_page_content()
+        updated_contents.update(page_content)
 
-init_search_url = 'https://losangeles.craigslist.org/search/apa'
-search_url_prefix = 'https://losangeles.craigslist.org/search/apa?s='
-search_url_num = range(100, 2500, 100)
+    return updated_contents
 
-url_list = [init_search_url]
-for num in search_url_num:
-    url_list.append(search_url_prefix + str(num))
-
-for url in url_list:
-    response = requests.get(url)
-    #soup = bs4.BeautifulSoup(response.text,"html.parser")
-    only_content_tags = SoupStrainer("p", class_="row")
-    soup = bs4.BeautifulSoup(response.text,"lxml", parse_only=only_content_tags)
-
-    tags = list(soup)
-    
-    pool = Pool()
-    pool.map(parse_tag, tags)
-    pool.close()
-    pool.join()
-
-    '''
+def parse_search_page_URL(url):
+    scraper = craiglist_apt_search_page_scrape()
+    soup = scraper.parse_URL(url)
     for tag in soup:
         if isinstance(tag, bs4.element.Tag):
             contents = scraper.get_tag_contents(tag)
-            url = contents['href']
-            if url is not None:
-                print url
-                pasred_page = craiglist_apt_single_page_scrape(url)
-                page_content = pasred_page.get_page_content()
-                contents.update(page_content)
-                #table.insert_one(contents)
-                print contents
-    '''
+            updated_contents = parse_tag_content(contents)
+            table.insert_one(updated_contents)
+
+def create_craiglist_apt_URLs():
+    init_search_url = 'https://losangeles.craigslist.org/search/apa'
+    search_url_prefix = 'https://losangeles.craigslist.org/search/apa?s='
+    search_url_num = range(100, 2500, 100)
+
+    url_list = [init_search_url]
+    for num in search_url_num:
+        url_list.append(search_url_prefix + str(num))
+
+    return url_list
+
+url_list = create_craiglist_apt_URLs()
+
+pool = Pool(8)
+#pool = ThreadPool(12)
+pool.map(parse_search_page_URL, url_list)
+pool.close()
+pool.join()
 
