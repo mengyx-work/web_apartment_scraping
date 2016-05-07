@@ -1,3 +1,6 @@
+import requests, bs4
+from bs4 import SoupStrainer
+
 class craiglist_apt_search_page_scrape(object):
     '''
     this class is a collection of varirous functions to parse
@@ -75,3 +78,12 @@ class craiglist_apt_search_page_scrape(object):
             variable_content[variable_name] = variable_fetch_dictionary[variable_name](tag)
 
         return variable_content
+
+    @classmethod
+    def parse_URL(self, url):
+        response = requests.get(url)
+        #soup = bs4.BeautifulSoup(response.text,"html.parser")
+        only_content_tags = SoupStrainer("p", class_="row")
+        soup = bs4.BeautifulSoup(response.text,"lxml", parse_only=only_content_tags)
+        return soup
+
