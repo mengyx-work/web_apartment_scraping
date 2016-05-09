@@ -41,7 +41,7 @@ def parse_tag_content(contents):
         updated_contents.update(page_content)
     return updated_contents
 
-def parse_search_page_URL(url, database_name, collection_name):
+def parse_search_page_URL(url):
     '''
     function to parse search URL and also parse each webpage
     for every apartment.
